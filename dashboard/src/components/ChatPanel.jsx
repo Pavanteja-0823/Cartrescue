@@ -46,12 +46,12 @@ export default function ChatPanel({ activeDecision, llmActive }) {
             className={`max-w-[88%] px-3 py-2 rounded-2xl text-[13px] leading-snug animate-fade-in ${
               m.role === 'user'
                 ? 'self-end bg-accent-dark rounded-br-sm'
-                : 'self-start bg-soft border border-line rounded-bl-sm'
+                : 'self-start bg-surface-2 border border-line rounded-bl-sm'
             }`}>
             {m.text}
           </div>
         ))}
-        {busy && <div className="self-start bg-soft border border-line px-3 py-2 rounded-2xl text-muted text-xs animate-fade-in">thinking…</div>}
+        {busy && <div className="self-start bg-surface-2 border border-line px-3 py-2 rounded-2xl text-muted text-xs animate-fade-in">thinking…</div>}
         <div ref={endRef} />
       </div>
 
@@ -68,7 +68,7 @@ export default function ChatPanel({ activeDecision, llmActive }) {
         <input value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder="Ask why the AI decided this…"
-          className="flex-1 bg-ink border border-line rounded-xl px-3 py-2 text-[13px] outline-none focus:border-accent" />
+          className="flex-1 bg-surface-2 border border-line rounded-xl px-3 py-2 text-[13px] outline-none focus:border-accent" />
         <button onClick={() => send()} disabled={busy}
           className="bg-accent rounded-xl px-4 text-white font-semibold text-sm disabled:opacity-50">
           Ask

@@ -23,7 +23,23 @@ from typing import List
 import numpy as np
 
 from ..core.schema import SessionFeatures
+from ..core.evaluation import ACTION_EFFICACY, NATURAL_RECOVERY
 from .risk_scorer import featurize, _NumpyLogReg
+from .reason_classifier import ReasonClassifier
+
+# The nudge each diagnosed reason would receive (matches ActionSelector logic).
+# Used ONLY to simulate the treated arm of the experiment, with the SAME
+# documented efficacy constants as evaluation.py — so uplift and A/B are
+# internally consistent (and clearly labelled as simulation).
+REASON_ACTION = {
+    "payment_failure": "cod_offer",              # bypass broken rail
+    "shipping_shock": "free_shipping_nudge",
+    "delivery_delay": "faster_delivery",
+    "price_shopping": "small_coupon",
+    "form_friction": "whatsapp_reminder",
+    "distracted_abandoner": "whatsapp_reminder",
+    "sure_buyer": "do_nothing",
+}
 
 
 # Quadrant thresholds on estimated uplift. Calibrated to the observed uplift
@@ -45,20 +61,71 @@ class UpliftModel:
         self.m_control = None
         self.trained = False
 
+    @staticmethod
+    def _risk_proxy(s: SessionFeatures) -> float:
+        """Cheap heuristic risk used for the simulation when no trained risk
+        model is supplied (keeps uplift always trainable, even standalone)."""
+        r = 0.35
+        if s.payment_failed:          r += 0.45
+        if s.n_payment_attempts >= 2: r += 0.15
+        if s.n_checkout == 0 and s.n_add_to_cart > 0: r += 0.25
+        if s.duration_s > 600:        r += 0.15
+        if s.n_page_view >= 15 and s.n_add_to_cart <= 1: r += 0.20
+        if s.cart_value > 3000:       r += 0.10
+        return min(0.98, r)
+
+    def _simulated_outcome(self, s: SessionFeatures, treated: bool, rng,
+                           risk: float, rc: ReasonClassifier) -> int:
+        """Simulated purchase outcome for the experiment:
+          * bought anyway        -> 1 in both arms
+          * non-intent session   -> natural label
+          * abandoner in CONTROL -> natural recovery only
+          * abandoner in TREATED -> natural recovery + per-action efficacy,
+            but only for HIGH-risk carts (nudges genuinely move them; low-risk
+            abandoners are lost-causes / come back on their own).
+        Documented constants (NATURAL_RECOVERY, ACTION_EFFICACY) match
+        evaluation.py, so the uplift story is internally consistent."""
+        if s.purchased == 1 or s.reached_intent != 1:
+            return int(s.purchased)
+        if rng.random() < NATURAL_RECOVERY:          # comes back on its own
+            return 1
+        if treated:
+            risk_mod = 1.0 if risk >= 0.55 else 0.0  # sharp gate: high risk only
+            reason = rc.classify(s, risk).reason
+            eff = ACTION_EFFICACY.get(REASON_ACTION.get(reason, "do_nothing"), 0.0)
+            if rng.random() < eff * risk_mod:
+                return 1
+        return 0
+
     def train(self, sessions: List[SessionFeatures],
-              treated_flags: List[bool]) -> dict:
+              treated_flags: List[bool], seed: int = 42,
+              risk_scorer=None) -> dict:
         """Train two purchase models: one on treated, one on control sessions.
         `treated_flags[i]` = was session i in the treatment arm during the
-        experiment that produced these outcomes."""
+        experiment that produced these outcomes. The treated arm's outcomes
+        include the (simulated) nudge effect, so the learned uplift is a
+        meaningful estimate of persuasion, not noise.
+        Pass `risk_scorer` (the trained RiskScorer) for the most realistic
+        simulation — risks are computed with ONE vectorised model call for
+        the whole batch (fast on 120k sessions). Falls back to a heuristic."""
+        rng = np.random.default_rng(seed)
+        X_all = np.array([featurize(s) for s in sessions])
+        if risk_scorer is not None and risk_scorer.model is not None:
+            risks = risk_scorer._predict_proba(X_all)   # one batched call
+        else:
+            risks = np.array([self._risk_proxy(s) for s in sessions])
+        rc = ReasonClassifier()   # single instance, reused across sessions
         Xt, yt, Xc, yc = [], [], [], []
-        for s, treated in zip(sessions, treated_flags):
+        for i, (s, treated) in enumerate(zip(sessions, treated_flags)):
             if s.purchased is None:
                 continue
-            x = featurize(s)
+            x = X_all[i]
+            y = self._simulated_outcome(s, treated, rng,
+                                        risk=float(risks[i]), rc=rc)
             if treated:
-                Xt.append(x); yt.append(s.purchased)
+                Xt.append(x); yt.append(y)
             else:
-                Xc.append(x); yc.append(s.purchased)
+                Xc.append(x); yc.append(y)
         Xt, yt = np.array(Xt), np.array(yt)
         Xc, yc = np.array(Xc), np.array(yc)
 

@@ -191,3 +191,36 @@ function localDispatch(d) {
   if (!consentOk) return { channel, status: 'blocked_no_consent', note: `No ${channel} consent — skipped per TRAI/DND + opt-in policy.` }
   return { channel, status: 'dry_run', note: `Would send a ${channel} nudge (add SendGrid/Twilio keys to send for real).` }
 }
+
+// Fetch the data-derived Coupon Playbook (real per-reason stats from training).
+export async function getPlaybook() {
+  try {
+    const r = await fetch(`${BASE}/playbook`, { signal: AbortSignal.timeout(3000) })
+    if (!r.ok) throw new Error('bad status')
+    const data = await r.json()
+    if (!data || !data.reasons) throw new Error('empty')
+    return data
+  } catch {
+    return null  // caller shows a "start backend for live values" note
+  }
+}
+
+// Fetch real model facts (AUC, backend, decisions). Null-safe fallback.
+export async function getModelInfo() {
+  try {
+    const r = await fetch(`${BASE}/model_info`, { signal: AbortSignal.timeout(2000) })
+    if (!r.ok) throw new Error('bad')
+    return await r.json()
+  } catch { return { risk_auc: null, backend: 'classical', n_intent: 0 } }
+}
+
+// Fetch REAL dataset sessions scored by the trained backend (for the live feed).
+export async function getStreamSample(limit = 400) {
+  try {
+    const r = await fetch(`${BASE}/stream_sample?limit=${limit}`, { signal: AbortSignal.timeout(3000) })
+    if (!r.ok) throw new Error('bad')
+    const d = await r.json()
+    if (!d.sessions || !d.sessions.length) throw new Error('empty')
+    return d.sessions
+  } catch { return null }  // caller falls back to the simulator
+}

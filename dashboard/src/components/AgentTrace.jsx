@@ -16,7 +16,7 @@ export default function AgentTrace({ session }) {
 
   return (
     <div>
-      <div className="flex justify-between items-center bg-soft rounded-xl px-4 py-3 mb-4">
+      <div className="flex justify-between items-center bg-surface-2 rounded-xl px-4 py-3 mb-4">
         <span className="font-mono text-xs text-muted">
           {session.id} · {session.device} · ₹{Math.round(session.cartValue).toLocaleString('en-IN')} cart
         </span>
@@ -28,7 +28,7 @@ export default function AgentTrace({ session }) {
       <div className="flex flex-col gap-2.5">
         {(session.trace || []).map((a, i) => (
           <div key={i}
-            className="relative flex gap-3 items-start p-3 rounded-2xl bg-soft/50 border border-line animate-reveal"
+            className="relative flex gap-3 items-start p-3 rounded-2xl bg-surface-2 border border-line animate-reveal"
             style={{ animationDelay: `${i * 0.6}s`, opacity: 0 }}>
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${ICON_BG[a.kind]}`}>
               {a.icon}
@@ -37,9 +37,9 @@ export default function AgentTrace({ session }) {
             <div className="flex-1 min-w-0">
               <div className="text-xs font-bold flex items-center gap-2">
                 {a.agent}
-                <span className="text-[9px] text-muted font-medium bg-ink px-1.5 py-0.5 rounded">{a.badge}</span>
+                <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">{a.badge}</span>
               </div>
-              <div className="text-[13px] text-text/85 mt-1 leading-snug">{a.text}</div>
+              <div className="text-[13px] text-ink-soft mt-1 leading-snug">{a.text}</div>
             </div>
           </div>
         ))}

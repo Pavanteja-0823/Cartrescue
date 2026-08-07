@@ -15,7 +15,7 @@
 - Two costs: **wasted margin** on sure buyers + **no help** for failed payments.
 
 ### Slide 3 — The Solution
-- A plug-and-play **decision service**: `POST /score` → risk, reason, one action, cost — in <1ms.
+- A plug-and-play **decision service**: `POST /score` → risk, reason, one action, cost — in ~5ms.
 - **"Do nothing" is a valid action.** We act only when it pays.
 - Visual: the 4-agent flow.
 
@@ -25,13 +25,13 @@
 - Emphasise: transparent, auditable, several small agents (not one mega-prompt).
 
 ### Slide 5 — Proof It Works (Business Impact) ⭐
-- **A/B holdout**: Treatment 36% vs Control 10% recovery → **+26pp true uplift**.
+- **A/B holdout**: Treatment 29% vs Control 10% recovery → **+19pp true uplift**.
 - "Causation, not correlation."
-- Big number: **₹4.8 discount per recovered cart**.
+- Big number: **₹5.5 discount per recovered cart**.
 
 ### Slide 6 — The Differentiators (AI Innovation) ⭐
-- **Uplift modeling** → spend only on **Persuadables** (~10% of sessions).
-- **Cost-per-decision routing** → 90% cheap ML / 10% LLM → **₹0.025 avg**, ~10× cheaper.
+- **Uplift modeling** → target budget at **Persuadables**; sure-things & sleeping-dogs get ₹0.
+- **Cost-per-decision routing** → 94% cheap ML / 6% LLM → **₹0.016 avg**, ~16× cheaper.
 - **Self-Check** agent enforces budget + consent + margin.
 
 ### Slide 7 — India-Specific Intelligence (Enterprise/UX)
@@ -41,12 +41,12 @@
 
 ### Slide 8 — Architecture & Integration (Enterprise/Scalability)
 - Diagram: dataset → /score → 4 agents → action + audit → dashboard / SendGrid / Twilio.
-- <1ms latency, hybrid ML (runs with zero heavy deps), stateless API → scales horizontally.
+- ~5ms latency, hybrid ML (runs with zero heavy deps), stateless API → scales horizontally.
 - Any store integrates by calling **one endpoint**.
 
 ### Slide 9 — 💸 Money Math at Scale ⭐ (the "big money" slide)
 - Net margin per cart × a large retailer's annual cart volume.
-- Show the compounding: **demo ₹47L → crores/year at scale**.
+- Show the compounding: **demo ₹37L → crores/year at scale**.
 - Contrast bar: our discount spend vs coupon-to-everyone (**99% less**).
 
 ### Slide 10 — Roadmap & Close

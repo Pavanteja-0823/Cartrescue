@@ -26,7 +26,7 @@ export default function PersuadablesQuadrant({ counts = {} }) {
   return (
     <div>
       <h3 className="text-sm font-bold flex items-center gap-2">🎯 Who deserves a coupon?
-        <span className="text-[9px] text-muted font-medium bg-ink px-1.5 py-0.5 rounded">uplift modeling</span>
+        <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">uplift modeling</span>
       </h3>
       <p className="text-muted text-[11px] mb-3">
         We only spend on <b className="text-accent">Persuadables</b> — shoppers who buy <i>only if</i> nudged. Never on people who'd buy anyway.
@@ -37,12 +37,12 @@ export default function PersuadablesQuadrant({ counts = {} }) {
           const pct = Math.round((n / total) * 100)
           return (
             <div key={q.key}
-              className={`rounded-xl p-3 bg-soft/60 ring-1 ${RING[q.tone]} ${q.spend ? 'shadow-lg' : ''}`}>
+              className={`rounded-xl p-3 bg-surface-2 ring-1 ${RING[q.tone]} ${q.spend ? 'shadow-lg' : ''}`}>
               <div className="flex items-center justify-between">
                 <span className="text-lg">{q.icon}</span>
                 {q.spend
                   ? <span className="text-[9px] font-bold text-accent bg-accent/15 px-1.5 py-0.5 rounded">💸 SPEND</span>
-                  : <span className="text-[9px] text-muted bg-ink px-1.5 py-0.5 rounded">skip</span>}
+                  : <span className="text-[9px] text-muted bg-surface-2 px-1.5 py-0.5 rounded">skip</span>}
               </div>
               <div className={`text-[12px] font-bold mt-1.5 ${TXT[q.tone]}`}>{q.title}</div>
               <div className="text-[10px] text-muted leading-snug mt-0.5">{q.desc}</div>

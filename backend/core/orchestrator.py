@@ -60,6 +60,7 @@ class Orchestrator:
         self.uplift = None   # optional UpliftModel; set via attach_uplift()
         self.audit_path = audit_path or str(config.AUDIT_LOG_PATH)
         self._audit_fh = None
+        self._pending = 0   # buffered writes: flush in batches (OneDrive-safe)
 
     # ---- training passes through to the risk model ----
     def train(self, sessions: List[SessionFeatures]) -> dict:
@@ -100,14 +101,20 @@ class Orchestrator:
             uplift_note = ""
             if self.uplift is not None and proposal.discount_amount > 0:
                 quad, u, spend_ok = self.uplift.quadrant(s)
-                if not spend_ok:
+                # Uplift model acts as a SAFETY NET: block budget only where a
+                # nudge backfires (sleeping_dog) or the sale is guaranteed
+                # anyway (sure_thing). Genuinely at-risk carts that cleared the
+                # Action Selector's cart-value + risk gates keep their budget
+                # (they are the persuasive population a coupon can actually move).
+                if quad in ("sure_thing", "sleeping_dog"):
                     proposal.action = "do_nothing"
                     proposal.discount_amount = 0.0
                     proposal.channel_cost = 0.0
                     proposal.rationale = (f"Uplift model: {quad} (uplift={u:+.2f}) — "
-                                          "not a Persuadable, so spending budget here is wasted.")
+                                          "sale guaranteed or nudge backfires; "
+                                          "spending budget here is wasted.")
                 else:
-                    uplift_note = f" [Persuadable, uplift={u:+.2f}]"
+                    uplift_note = f" [{quad}, uplift={u:+.2f}]"
             final = self.check.review(s, proposal)
             final_action = final.action
             discount = final.discount_amount
@@ -152,9 +159,16 @@ class Orchestrator:
         if self._audit_fh is None:
             self._audit_fh = open(self.audit_path, "a", encoding="utf-8")
         self._audit_fh.write(json.dumps(asdict(d), default=str) + "\n")
-        self._audit_fh.flush()
+        # PERF FIX: flushing after EVERY decision is brutally slow on
+        # cloud-synced folders (OneDrive re-syncs on each flush). Buffer and
+        # flush every 32 decisions; close() flushes the tail.
+        self._pending += 1
+        if self._pending >= 32:
+            self._audit_fh.flush()
+            self._pending = 0
 
     def close(self):
         if self._audit_fh:
+            self._audit_fh.flush()
             self._audit_fh.close()
             self._audit_fh = None

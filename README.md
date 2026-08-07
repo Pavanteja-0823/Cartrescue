@@ -21,7 +21,7 @@ Indian shoppers abandon carts for very different reasons — a surprise shipping
 
 ## 💡 Our Solution
 
-A **plug-and-play decision service** (`POST /score`) powered by **four cooperating AI agents**. For every session it returns — in under a millisecond — a risk score, the reason, one bounded action, a plain-English explanation, and the decision cost. A live React dashboard streams the decisions and proves the money impact with a real A/B holdout.
+A **plug-and-play decision service** (`POST /score`) powered by **four cooperating AI agents**. For every session it returns — in a few milliseconds — a risk score, the reason, one bounded action, a plain-English explanation, and the decision cost. A live React dashboard streams the decisions and proves the money impact with a real A/B holdout.
 
 ---
 
@@ -103,7 +103,7 @@ sequenceDiagram
     API->>Check: review(proposal)
     Check-->>API: approved (within budget & consent)
     API->>Log: append(risk, signals, action)
-    API-->>Store: {risk, reason, action, explanation, cost} · ~0.2ms
+    API-->>Store: {risk, reason, action, explanation, cost} · ~5ms
 ```
 
 ---
@@ -211,16 +211,16 @@ npm run dev
 
 | Metric | Result |
 |--------|--------|
-| 🎯 Risk model AUC (honest, leakage-free) | **0.82** |
-| 📈 Treatment recovery vs control | **36.3% vs 10.5%** |
-| 🚀 **True A/B uplift** | **+25.7 percentage points** |
-| 💰 Net incremental margin (demo scale) | **₹47.4 L** |
-| 🎟️ Discount per recovered cart | **₹4.8** |
+| 🎯 Risk model AUC (honest, leakage-free) | **0.77** |
+| 📈 Treatment recovery vs control | **29.0% vs 10.2%** |
+| 🚀 **True A/B uplift** | **+18.8 percentage points** |
+| 💰 Net incremental margin (demo scale) | **₹36.7 L** |
+| 🎟️ Discount per recovered cart | **₹5.5** |
 | 💸 Discount saved vs "coupon-to-everyone" | **99% less** |
-| ⚡ Avg cost per decision | **₹0.025** (~10× cheaper than LLM-for-all) |
-| 🧮 Decisions on cheap ML vs LLM | **90% / 10%** |
-| ⏱️ Avg decision latency | **0.19 ms** |
-| 📐 Persuadables identified (budget target) | **~10%** of sessions |
+| ⚡ Avg cost per decision | **₹0.016** (~16× cheaper than LLM-for-all) |
+| 🧮 Decisions on cheap ML vs LLM | **94% / 6%** |
+| ⏱️ Avg decision latency | **~4.7 ms** (guardrail: < few hundred ms) |
+| 📐 Budget targeting (uplift) | **at-risk carts only; sure-things & sleeping-dogs get ₹0** |
 
 > 📷 *Dashboard screenshot: add `docs/dashboard.png` after running `npm run dev`.*
 
@@ -270,7 +270,7 @@ Other endpoints: `POST /explain` (rich narrative), `POST /ask` (judge Q&A), `GET
 - Per-store **budget optimizer** across concurrent campaigns.
 
 ## 🔬 A Note on Data Honesty
-We analysed all four datasets. dataset2's cart value & payment fields are only logged **at purchase time** (they leak the outcome), and its raw pre-decision browsing is non-predictive. As the problem statement anticipates, we keep dataset2's **real funnel structure** and overlay a **clearly-labelled synthetic behavioural layer** (UPI failures, price-shoppers, friction) — every synthetic field is tagged in the audit log. This yields an honest AUC of 0.82 (not a suspicious 1.0).
+We analysed all four datasets. dataset2's cart value & payment fields are only logged **at purchase time** (they leak the outcome), and its raw pre-decision browsing is non-predictive. As the problem statement anticipates, we keep dataset2's **real funnel structure** and overlay a **clearly-labelled synthetic behavioural layer** (UPI failures, price-shoppers, friction) — every synthetic field is tagged in the audit log. This yields an honest holdout AUC of 0.77 (not a suspicious 1.0).
 
 ## 👥 Team / Credits
 - **Pavan Teja Kanithi** — [GitHub](https://github.com/Pavanteja-0823) · [LinkedIn](https://www.linkedin.com/in/pavanteja-kanithi/)

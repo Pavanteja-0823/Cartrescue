@@ -19,6 +19,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
+
+# Windows consoles default to cp1252, which cannot print the ₹ symbol and
+# crashes the demo right at the RESULTS section. Force UTF-8 output.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:  # noqa: BLE001
+    pass
 from dataclasses import asdict
 from pathlib import Path
 
@@ -36,9 +45,16 @@ def main():
     ap.add_argument("--no-enrich", action="store_true")
     args = ap.parse_args()
 
-    # fresh audit log each run
-    if Path(AUDIT_LOG_PATH).exists():
-        Path(AUDIT_LOG_PATH).unlink()
+    # fresh audit log each run; if the running API holds the shared file open
+    # (Windows file lock), fall back to a demo-specific audit file.
+    audit_path = Path(AUDIT_LOG_PATH)
+    if audit_path.exists():
+        try:
+            audit_path.unlink()
+        except PermissionError:
+            audit_path = Path(LOGS_DIR) / "audit_log_demo.jsonl"
+            print("[demo] shared audit log held by the running API — "
+                  f"using {audit_path.name}")
 
     print("=" * 64)
     print("CART RESCUE — full pipeline demo")
@@ -47,7 +63,7 @@ def main():
     sessions = load_sessions(prefer=args.prefer, limit=args.limit,
                              enrich=not args.no_enrich)
 
-    orch = Orchestrator()
+    orch = Orchestrator(audit_path=str(audit_path))
     info = orch.train(sessions)
     print(f"[demo] risk model: {info}")
     auc = info.get("auc")
@@ -61,7 +77,10 @@ def main():
     random.seed(42)
     treated_flags = [random.random() < 0.7 for _ in sessions]
     uplift = UpliftModel()
-    uinfo = uplift.train(sessions, treated_flags)
+    # risk_scorer = the trained risk model, so the uplift simulation uses the
+    # SAME risk estimates the live system would (consistent, honest
+    # simulation) — computed with one vectorised call for the whole batch.
+    uinfo = uplift.train(sessions, treated_flags, risk_scorer=orch.risk)
     orch.attach_uplift(uplift)
     print(f"[demo] uplift model: {uinfo}")
 
@@ -105,7 +124,7 @@ def main():
           f"({m.cost_savings_x}x cheaper than LLM-for-all)")
     print(f"Avg latency/decision:       {m.avg_latency_ms} ms")
     print("=" * 64)
-    print(f"[demo] audit log  -> {AUDIT_LOG_PATH}")
+    print(f"[demo] audit log  -> {audit_path}")
     print(f"[demo] metrics    -> {LOGS_DIR / 'metrics.json'}")
     print(f"[demo] decisions  -> {LOGS_DIR / 'decisions.csv'}")
 

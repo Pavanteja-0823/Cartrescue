@@ -12,7 +12,7 @@
 ---
 
 ### ⏱️ 1:00–2:30 — The Solution & Architecture
-> "Cart Rescue is a plug-and-play decision service. Any store sends us one session; we return the smartest single action in under a millisecond."
+> "Cart Rescue is a plug-and-play decision service. Any store sends us one session; we return the smartest single action in about 5 milliseconds — well inside the real-time guardrail."
 
 Show the **README architecture diagram**. Point to the 4 agents:
 1. **Risk Scorer** — how likely to leave?
@@ -41,17 +41,17 @@ Then click a **sure-buyer**:
 
 ### ⏱️ 4:30–6:00 — Prove It Works (A/B + money)
 Point to the **A/B holdout card**:
-> "We hold out 30% of shoppers as a control — they get nothing. Treatment recovers **36%**, control only **10%**. That's a **+26 point true uplift** — causation, not correlation."
+> "We hold out 30% of shoppers as a control — they get nothing. Treatment recovers **29%**, control only **10%**. That's a **+19 point true uplift** — causation, not correlation."
 
 Point to the KPI tiles:
-> "Discount per recovered cart: **₹4.8**. The naive coupon-to-everyone approach would spend **99% more**. Net incremental margin at demo scale: **₹47 lakh**."
+> "Discount per recovered cart: **₹5.5**. The naive coupon-to-everyone approach would spend **99% more**. Net incremental margin at demo scale: **₹37 lakh**."
 
 ---
 
 ### ⏱️ 6:00–7:00 — AI Depth & Cost (differentiators)
 > "Two things most teams won't do:
 > 1. **Uplift modeling** — we only spend budget on **Persuadables** (buy *only if* nudged), never on sure-things or lost-causes.
-> 2. **Cost-per-decision routing** — 90% of decisions run on a **cheap classical model** costing ₹0.0002; only genuinely uncertain cases hit the LLM. Average cost per decision: **₹0.025** — 10× cheaper than calling an LLM for everything."
+> 2. **Cost-per-decision routing** — 94% of decisions run on a **cheap classical model** costing ₹0.0002; only genuinely uncertain cases hit the LLM. Average cost per decision: **₹0.016** — 16× cheaper than calling an LLM for everything."
 
 ---
 

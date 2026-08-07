@@ -12,12 +12,14 @@ dataset2/
 dataset3/
 dataset4/
 data/*.csv
+data/*.pkl
 
 # Model artifacts + logs
 models/*.pkl
 logs/*.jsonl
 logs/*.csv
 logs/*.json
+logs/*.log
 
 # Secrets
 .env

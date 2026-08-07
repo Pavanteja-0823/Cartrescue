@@ -19,6 +19,7 @@ whole system still runs and demos end-to-end. Synthetic rows are clearly flagged
 """
 from __future__ import annotations
 import os
+import pickle
 from pathlib import Path
 from typing import List, Optional
 import numpy as np
@@ -160,8 +161,11 @@ def load_dataset2(root: Optional[Path] = None,
                 for k in ("n_events", "n_page_view", "n_add_to_cart",
                           "n_checkout", "n_purchase", "n_payment"):
                     a[k] += r[k]
-                a["max_cart_size"] = np.nanmax([a["max_cart_size"], r["max_cart_size"]])
-                a["max_amount"] = np.nanmax([a["max_amount"], r["max_amount"]])
+                # a session's events can span chunk boundaries: if BOTH sides
+                # are NaN keep NaN (avoids the All-NaN nanmax warning).
+                for k in ("max_cart_size", "max_amount"):
+                    v1, v2 = a[k], r[k]
+                    a[k] = v1 if np.isnan(v1) and np.isnan(v2) else np.nanmax([v1, v2])
             else:
                 acc[sid] = r.to_dict()
 
@@ -309,11 +313,42 @@ def generate_synthetic_sessions(n: int = 2000,
 # ===========================================================================
 # SMART ENTRY POINT
 # ===========================================================================
+# Parsing dataset2 (42MB, ~1.2M events) takes ~45s on cloud-synced folders.
+# We cache the parsed per-session table so repeat runs (demo day!) load in ~1s.
+# The cache auto-invalidates when events.csv changes.
+_CACHE_PATH = DATA_DIR / "_sessions_dataset2_cache.pkl"
+
+
+def _load_cached(name: str, loader) -> List[SessionFeatures]:
+    """Parse once, reuse forever: returns raw (un-enriched) sessions."""
+    src = (ROOT / name / "events.csv" if name == "dataset2"
+           else ROOT / name / "ecommerce_clickstream_transactions.csv")
+    try:
+        if _CACHE_PATH.exists() and src.exists():
+            if _CACHE_PATH.stat().st_mtime >= src.stat().st_mtime:
+                with open(_CACHE_PATH, "rb") as fh:
+                    cached = pickle.load(fh)
+                if cached:
+                    print(f"[data_loader] loaded {len(cached)} sessions from cache ({name})")
+                    return cached
+    except Exception:  # noqa: BLE001
+        pass  # any cache problem -> just re-parse
+    data = loader()
+    try:
+        with open(_CACHE_PATH, "wb") as fh:
+            pickle.dump(data, fh)
+        print(f"[data_loader] cached parsed {name} ({len(data)} sessions)")
+    except Exception:  # noqa: BLE001
+        pass
+    return data
+
+
 def load_sessions(prefer: str = "dataset2",
                   limit: Optional[int] = None,
                   enrich: bool = True) -> List[SessionFeatures]:
     """Load whichever dataset is available, falling back to synthetic.
-    `prefer` picks the primary; we degrade gracefully if it's missing."""
+    `prefer` picks the primary; we degrade gracefully if it's missing.
+    NOTE: limit is applied BEFORE enrichment so quick runs stay quick."""
     loaders = {
         "dataset2": load_dataset2,
         "dataset1": load_dataset1,
@@ -321,15 +356,17 @@ def load_sessions(prefer: str = "dataset2",
     order = [prefer] + [k for k in loaders if k != prefer]
     for name in order:
         try:
-            data = loaders[name]()
+            data = _load_cached(name, loaders[name])
             if data:
+                if limit:
+                    data = data[:limit]
                 if enrich:
                     data = _enrich_with_synthetic_signals(data)
                     print(f"[data_loader] loaded {len(data)} sessions from {name} "
                           f"(+ synthetic behavioural signal layer)")
                 else:
                     print(f"[data_loader] loaded {len(data)} sessions from {name}")
-                return data[:limit] if limit else data
+                return data
         except FileNotFoundError:
             continue
         except Exception as e:  # noqa: BLE001

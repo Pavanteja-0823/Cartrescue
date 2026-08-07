@@ -32,6 +32,7 @@ from backend.core.config import MODELS_DIR
 from backend.core.data_loader import load_sessions
 from backend.core import llm_explainer
 from backend.core import notifier
+from backend.core.playbook_stats import compute_playbook
 
 app = FastAPI(
     title="CART RESCUE — Abandonment Diagnosis & Remediation API",
@@ -91,37 +92,78 @@ class ScoreResponse(BaseModel):
     notification: dict = {}
 
 
+_PLAYBOOK_CACHE = {}
+_SCORED_SESSIONS = []  # real dataset rows scored through the trained model
+
+
 @app.on_event("startup")
 def _startup():
-    """Load a trained risk model if present; otherwise train a quick one so the
-    API is always ready (great for a live demo — no missing-model errors).
-    Also trains + attaches the uplift (Persuadables) model, so /score applies
-    the same budget gating as the batch demo pipeline."""
+    """Load or train the risk model, attach uplift, compute the playbook, and
+    score a real dataset sample for the live feed. Always leaves the API ready."""
     model_path = Path(MODELS_DIR) / "risk_model.pkl"
+    sessions = load_sessions(limit=20000)
+
     if model_path.exists():
         with open(model_path, "rb") as fh:
             orch.risk = pickle.load(fh)
         print(f"[api] loaded trained model ({orch.risk.backend})")
     else:
         print("[api] no saved model — training a quick one on load...")
-    sessions = load_sessions(limit=20000)
-    if not model_path.exists():
         info = orch.train(sessions)
         print(f"[api] trained: {info}")
-    # DIFFERENTIATOR via API too: spend budget only on Persuadables.
+
+    # DIFFERENTIATOR: spend budget only on Persuadables.
     import random
     from backend.agents.uplift_model import UpliftModel
     random.seed(42)
-    treated_flags = [random.random() < 0.7 for _ in sessions]
+    treated = [random.random() < 0.7 for _ in sessions]
     uplift = UpliftModel()
-    uinfo = uplift.train(sessions, treated_flags)
-    orch.attach_uplift(uplift)
-    print(f"[api] uplift model attached: {uinfo}")
+    try:
+        uinfo = uplift.train(sessions, treated, risk_scorer=orch.risk)
+        orch.attach_uplift(uplift)
+        print(f"[api] uplift attached: {uinfo}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[api] uplift skipped: {e}")
+
+    # Data-derived Coupon Playbook from the real sessions.
+    try:
+        _PLAYBOOK_CACHE.update(compute_playbook(sessions, orch.risk))
+        print(f"[api] playbook computed for {_PLAYBOOK_CACHE.get('n_intent')} sessions")
+    except Exception as e:  # noqa: BLE001
+        print(f"[api] playbook skipped: {e}")
+
+    # Score a REAL dataset sample through the trained model for the live feed.
+    try:
+        random.seed(7)
+        sample = [x for x in sessions if x.reached_intent == 1]
+        random.shuffle(sample)
+        for _s in sample[:400]:
+            _d = orch.decide(_s, is_control=(random.random() < 0.30), log=False)
+            _SCORED_SESSIONS.append({
+                "session_id": _d.session_id, "risk": _d.risk, "reason": _d.reason,
+                "action": _d.action, "discount": _d.discount_amount,
+                "engine": _d.engine, "is_control": _d.is_control,
+                "cart_value": _s.cart_value, "purchased": _s.purchased,
+            })
+        print(f"[api] scored {len(_SCORED_SESSIONS)} real sessions for the feed")
+    except Exception as e:  # noqa: BLE001
+        print(f"[api] session scoring skipped: {e}")
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_backend": orch.risk.backend}
+    return {"status": "ok", "model_backend": orch.risk.backend,
+            "risk_auc": getattr(orch.risk, "auc", None)}
+
+
+@app.get("/model_info")
+def model_info():
+    """Real model facts for the dashboard (AUC, backend, decisions scored)."""
+    return {
+        "risk_auc": getattr(orch.risk, "auc", None),
+        "backend": getattr(orch.risk, "backend", "unknown"),
+        "n_intent": _PLAYBOOK_CACHE.get("n_intent", 0),
+    }
 
 
 @app.post("/score", response_model=ScoreResponse)
@@ -214,3 +256,15 @@ def send(req: SendRequest):
 def notify_status():
     """Which live send channels are configured (email/SMS/WhatsApp)."""
     return notifier.status()
+
+
+@app.get("/playbook")
+def playbook():
+    """Data-derived Coupon Playbook stats (computed from the trained sessions)."""
+    return _PLAYBOOK_CACHE
+
+
+@app.get("/stream_sample")
+def stream_sample(limit: int = 60):
+    """Real dataset sessions scored through the trained model (for the live feed)."""
+    return {"sessions": _SCORED_SESSIONS[:limit], "total_scored": len(_SCORED_SESSIONS)}

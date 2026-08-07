@@ -5,15 +5,37 @@
 /* All animations live in tailwind.config.js (theme.extend.keyframes) — NOT here —
    to avoid @keyframes collisions that freeze elements at the 0% frame. */
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-}
+html, body, #root { height: 100%; margin: 0; }
 body {
-  background: #0A0E1A;
-  color: #EAEEF7;
+  /* Premium medium-dark canvas: soft indigo + fuchsia radial glows over the slate base */
+  background:
+    radial-gradient(1100px 520px at 85% -10%, rgba(129,140,248,0.13), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(192,132,252,0.09), transparent 55%),
+    #12162A;
+  color: #F4F6FF;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #243154; border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: #2C3460; border-radius: 9px; }
+::-webkit-scrollbar-thumb:hover { background: #3A4268; }
+
+/* --- Consistent range slider (cr-slider) — dark theme -------------------- */
+.cr-slider {
+  -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 9999px; outline: none; cursor: pointer;
+}
+.cr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #F4F6FF; border: 3px solid #818CF8;
+  box-shadow: 0 1px 6px rgba(129,140,248,0.6); cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.cr-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.cr-slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #F4F6FF; border: 3px solid #818CF8;
+  box-shadow: 0 1px 6px rgba(129,140,248,0.6); cursor: pointer;
+}
+.cr-slider::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }

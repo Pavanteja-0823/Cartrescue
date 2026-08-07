@@ -67,7 +67,7 @@ export default function TryItLive({ onDecision }) {
       {/* LEFT: inputs */}
       <div>
         <h3 className="text-base font-bold flex items-center gap-2">🎮 Try It Live
-          <span className="text-[9px] text-muted font-medium bg-ink px-1.5 py-0.5 rounded">enter a shopper → AI decides</span>
+          <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">enter a shopper → AI decides</span>
         </h3>
         <p className="text-muted text-[12px] mb-4">Drag the sliders to describe ONE shopper, then let the AI analyse that exact person.</p>
 
@@ -81,12 +81,12 @@ export default function TryItLive({ onDecision }) {
         </div>
 
         <div className="space-y-3.5">
-          <Slider label="Cart value" name="cart_value" value={form.cart_value} min={0} max={20000} step={50} unit="₹" onChange={setField} />
+          <Slider label="Cart value" name="cart_value" value={form.cart_value} min={0} max={10000} step={100} unit="₹" onChange={setField} />
           <Slider label="Items in cart" name="cart_size" value={form.cart_size} min={0} max={10} onChange={setField} />
           <Slider label="Page views" name="n_page_view" value={form.n_page_view} min={0} max={40} onChange={setField} />
           <Slider label="Add-to-cart actions" name="n_add_to_cart" value={form.n_add_to_cart} min={0} max={8} onChange={setField} />
           <Slider label="Reached checkout (times)" name="n_checkout" value={form.n_checkout} min={0} max={3} onChange={setField} />
-          <Slider label="Time on page" name="duration_s" value={form.duration_s} min={0} max={1800} step={10} unit="s" onChange={setField} />
+          <Slider label="Time on page" name="duration_s" value={form.duration_s} min={0} max={1200} step={30} unit="s" onChange={setField} />
           <Slider label="Payment attempts" name="n_payment_attempts" value={form.n_payment_attempts} min={0} max={5} onChange={setField} />
           <Slider label="Promised delivery" name="delivery_days" value={form.delivery_days} min={1} max={14} unit=" days" onChange={setField} />
         </div>
@@ -95,7 +95,7 @@ export default function TryItLive({ onDecision }) {
           <label className="flex flex-col gap-1">
             <span className="text-[12px] text-muted">Device</span>
             <select value={form.device} onChange={(e) => setField('device', e.target.value)}
-              className="bg-ink border border-line rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent">
+              className="bg-surface-2 border border-line rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent">
               <option value="mobile">mobile</option><option value="desktop">desktop</option><option value="tablet">tablet</option>
             </select>
           </label>
@@ -108,7 +108,7 @@ export default function TryItLive({ onDecision }) {
         </div>
 
         <button onClick={analyze} disabled={busy}
-          className="w-full mt-5 bg-accent hover:bg-accent-dark text-white font-semibold rounded-xl py-3 text-sm disabled:opacity-50">
+          className="w-full mt-5 bg-gradient-to-r from-accent to-accent-2 hover:from-accent-dark hover:to-accent-3 text-white font-semibold rounded-xl py-3 text-sm disabled:opacity-50 shadow-glow transition-all">
           {busy ? '🤖 AI is analysing…' : '🚀 Analyse this shopper'}
         </button>
       </div>
@@ -118,21 +118,21 @@ export default function TryItLive({ onDecision }) {
         <h3 className="text-base font-bold mb-1">🤖 AI Decision</h3>
         <p className="text-muted text-[12px] mb-4">The AI's verdict for this exact shopper.</p>
         {!result ? (
-          <div className="h-[300px] flex items-center justify-center text-muted text-sm bg-soft/40 rounded-2xl border border-line">
+          <div className="h-[300px] flex items-center justify-center text-muted text-sm bg-surface-2 rounded-2xl border border-line">
             Set the sliders and click "Analyse this shopper" →
           </div>
         ) : (
           <div className="animate-fade-in">
             <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-soft rounded-xl p-4 text-center">
+              <div className="bg-surface-2 rounded-xl p-4 text-center">
                 <div className={`text-3xl font-extrabold ${riskColor}`}>{riskPct}%</div>
                 <div className="text-[11px] text-muted mt-1">abandonment risk</div>
               </div>
-              <div className="bg-soft rounded-xl p-4 text-center flex flex-col justify-center">
+              <div className="bg-surface-2 rounded-xl p-4 text-center flex flex-col justify-center">
                 <div className="text-sm font-bold text-warn">{REASON_LABEL[result.reason] || result.reason}</div>
                 <div className="text-[11px] text-muted mt-1">diagnosed reason</div>
               </div>
-              <div className="bg-soft rounded-xl p-4 text-center flex flex-col justify-center">
+              <div className="bg-surface-2 rounded-xl p-4 text-center flex flex-col justify-center">
                 <div className="text-sm font-bold text-accent">{ACTION_LABEL[result.action] || result.action}</div>
                 <div className="text-[11px] text-muted mt-1">{result.discount_amount > 0 ? `−₹${Math.round(result.discount_amount)}` : '₹0 spent'}</div>
               </div>
