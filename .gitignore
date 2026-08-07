@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Datasets (too large / licensed — users download from Kaggle)
+dataset1/
+dataset2/
+dataset3/
+dataset4/
+data/*.csv
+
+# Model artifacts + logs
+models/*.pkl
+logs/*.jsonl
+logs/*.csv
+logs/*.json
+
+# Secrets
+.env
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db

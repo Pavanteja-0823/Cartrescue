@@ -1,0 +1,24 @@
+# CART RESCUE — Python dependencies
+# Unpinned for reliable resolution (works on any recent Python 3.9+).
+# The project RUNS with just pandas + numpy + fastapi (numpy-LR fallback).
+# scikit-learn / xgboost are OPTIONAL — installing them auto-upgrades the
+# risk model to a gradient-boosted classifier.
+
+# --- core (required) ---
+pandas
+numpy
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+
+# --- optional ML upgrade (recommended) ---
+scikit-learn
+xgboost
+
+# --- optional: real recovery nudges (Phase 3) ---
+sendgrid
+twilio
+
+# --- optional: uplift modeling differentiator ---
+# scikit-uplift

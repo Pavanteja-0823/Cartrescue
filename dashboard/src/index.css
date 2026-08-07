@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* All animations live in tailwind.config.js (theme.extend.keyframes) — NOT here —
+   to avoid @keyframes collisions that freeze elements at the 0% frame. */
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: #0A0E1A;
+  color: #EAEEF7;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #243154; border-radius: 8px; }
