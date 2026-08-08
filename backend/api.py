@@ -11,6 +11,7 @@ Then open http://localhost:8000/docs for the interactive Swagger UI.
 """
 from __future__ import annotations
 import pickle
+import random
 from pathlib import Path
 from typing import Optional
 
@@ -94,6 +95,7 @@ class ScoreResponse(BaseModel):
 
 _PLAYBOOK_CACHE = {}
 _SCORED_SESSIONS = []  # real dataset rows scored through the trained model
+_INTENT_POOL = []      # real intent sessions — the LIVE stream draws from these
 
 
 @app.on_event("startup")
@@ -113,7 +115,9 @@ def _startup():
         print(f"[api] trained: {info}")
 
     # DIFFERENTIATOR: spend budget only on Persuadables.
-    import random
+    global _INTENT_POOL
+    _INTENT_POOL = [x for x in sessions if x.reached_intent == 1]
+    print(f"[api] live-stream pool ready: {len(_INTENT_POOL)} intent sessions")
     from backend.agents.uplift_model import UpliftModel
     random.seed(42)
     treated = [random.random() < 0.7 for _ in sessions]
@@ -137,13 +141,14 @@ def _startup():
         random.seed(7)
         sample = [x for x in sessions if x.reached_intent == 1]
         random.shuffle(sample)
-        for _s in sample[:400]:
+        for _s in sample[:500]:
             _d = orch.decide(_s, is_control=(random.random() < 0.30), log=False)
             _SCORED_SESSIONS.append({
                 "session_id": _d.session_id, "risk": _d.risk, "reason": _d.reason,
                 "action": _d.action, "discount": _d.discount_amount,
                 "engine": _d.engine, "is_control": _d.is_control,
                 "cart_value": _s.cart_value, "purchased": _s.purchased,
+                "delivery_days": _s.extra.get("delivery_days", 0),
             })
         print(f"[api] scored {len(_SCORED_SESSIONS)} real sessions for the feed")
     except Exception as e:  # noqa: BLE001
@@ -268,3 +273,27 @@ def playbook():
 def stream_sample(limit: int = 60):
     """Real dataset sessions scored through the trained model (for the live feed)."""
     return {"sessions": _SCORED_SESSIONS[:limit], "total_scored": len(_SCORED_SESSIONS)}
+
+
+@app.get("/stream")
+def stream():
+    """Score ONE fresh real dataset session on EVERY call — the dashboard polls
+    this to keep its numbers genuinely moving with dataset traffic (live feed).
+    Each row is a real session scored by the trained model right now."""
+    if not _INTENT_POOL:
+        return {"ok": False, "error": "no sessions loaded"}
+    _s = random.choice(_INTENT_POOL)
+    try:
+        _d = orch.decide(_s, is_control=(random.random() < 0.30), log=False)
+    except Exception as e:  # noqa: BLE001
+        # never 500 on a live poll — the dashboard falls back gracefully
+        return {"ok": False, "error": f"decision failed: {e}"}
+    return {
+        "ok": True,
+        "session_id": _d.session_id, "risk": _d.risk, "reason": _d.reason,
+        "action": _d.action, "discount": _d.discount_amount,
+        "engine": _d.engine, "is_control": _d.is_control,
+        "cart_value": _s.cart_value, "purchased": _s.purchased,
+        "delivery_days": _s.extra.get("delivery_days", 0),
+        "latency_ms": _d.latency_ms,
+    }

@@ -33,7 +33,7 @@ export default function JudgingScorecard({ metrics = {} }) {
 
   return (
     <div>
-      <h3 className="text-sm font-bold flex items-center gap-2">🏆 Judging Scorecard
+      <h3 className="text-ink text-sm font-bold flex items-center gap-2">🏆 Judging Scorecard
         <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">live metrics, not hard-coded</span>
       </h3>
       <p className="text-muted text-[11px] mb-3">Weights (%) are the official hackathon rubric. The ✅ proof under each is computed <b className="text-ink">live from the data</b> — not hard-coded.</p>

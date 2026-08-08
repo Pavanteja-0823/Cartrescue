@@ -1,7 +1,7 @@
 // App.jsx — CART RESCUE premium AI dashboard, organised into 5 clean TABS:
 //   Overview · Try It Live · Live Feed · A/B Proof · Coupon Logic
 // State (streaming stats) is shared across tabs; only the active tab renders.
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts'
 import MetricCard from './components/MetricCard.jsx'
 import AgentTrace from './components/AgentTrace.jsx'
@@ -11,11 +11,11 @@ import JudgingScorecard from './components/JudgingScorecard.jsx'
 import PersuadablesQuadrant from './components/PersuadablesQuadrant.jsx'
 import CouponLogic from './components/CouponLogic.jsx'
 import { nextSession, buildAgentTrace } from './demoData.js'
-import { checkLLM, getModelInfo, getStreamSample } from './api.js'
+import { checkLLM, getModelInfo, getStreamSample, streamSession } from './api.js'
 
 const REASON_COLORS = {
-  payment_failure: '#FB7185', price_shopping: '#FBBF24', form_friction: '#818CF8',
-  shipping_shock: '#A78BFA', delivery_delay: '#FB923C', distracted_abandoner: '#38BDF8', sure_buyer: '#34D399',
+  payment_failure: '#FB7185', price_shopping: '#FBBF24', form_friction: '#22D3EE',
+  shipping_shock: '#A78BFA', delivery_delay: '#FB923C', distracted_abandoner: '#3B82F6', sure_buyer: '#34D399',
 }
 const REASON_LABEL = {
   payment_failure: 'Payment failure', price_shopping: 'Price shopping', form_friction: 'Form friction',
@@ -26,11 +26,13 @@ const inr = (n) => '₹' + Math.round(n).toLocaleString('en-IN')
 const TABS = ['Overview', 'Try It Live', 'Live Feed', 'A/B Proof', 'Coupon Logic']
 
 const Card = ({ children, className = '' }) => (
-  <section className={`bg-surface border border-line rounded-2xl p-5 ${className}`}>{children}</section>
+  <section className={`bg-surface border border-line rounded-2xl p-5 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-float ${className}`}>{children}</section>
 )
 
-export default function App() {
+export default function App({ onHome }) {
   const [tab, setTab] = useState('Overview')
+  const tabRef = useRef(tab)          // live tab value for the streaming effect (no stale closure)
+  useEffect(() => { tabRef.current = tab }, [tab])
   const [feed, setFeed] = useState([])
   const [active, setActive] = useState(null)
   const [manualDecision, setManualDecision] = useState(null)
@@ -44,11 +46,41 @@ export default function App() {
 
   useEffect(() => { checkLLM().then(setLlm); getModelInfo().then(setModelInfo) }, [])
 
-  // STABLE BATCH: instead of an endless random stream (which made numbers
-  // jump around every few seconds), we simulate a FIXED batch of sessions ONCE
-  // and let the metrics settle. This gives judges consistent, believable numbers.
-  // "Run again" re-rolls a fresh batch on demand.
-// Convert a backend-scored real session into the shape the UI expects.
+  // ---- DARK / LIGHT THEME (persisted; toggled from the header) ----
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#F3F7FE' : '#0A1120')
+    try { localStorage.setItem('cr-theme', theme) } catch { /* storage blocked — theme still applies this session */ }
+  }, [theme])
+
+  function toggleTheme() {
+    const html = document.documentElement
+    const next = theme === 'dark' ? 'light' : 'dark'
+    // Apply BEFORE the state update so the same render (chart colours) sees it.
+    html.dataset.theme = next
+    html.classList.add('theme-switching')
+    setTheme(next)
+    setTimeout(() => html.classList.remove('theme-switching'), 400)
+  }
+
+  // Recharts renders tick/cursor fills as SVG presentation ATTRIBUTES, where CSS
+  // var() support is unreliable — resolve the theme colours to concrete rgb here.
+  const svgColors = (() => {
+    const cs = getComputedStyle(document.documentElement)
+    const pick = (name, fallback) => {
+      const v = cs.getPropertyValue(name).trim()
+      return `rgb(${v || fallback})`
+    }
+    return { tick: pick('--c-ink-soft', '198 212 240'), cursor: pick('--c-surface2', '22 35 63') }
+  })()
+
+  // LIVE FEED: seed once with a real batch from the backend, then poll /stream
+  // (~1.4s) and append freshly-scored dataset sessions so the numbers genuinely
+  // move with dataset traffic. If the backend is down, the simulator keeps the
+  // feed alive. "Run again" re-seeds a fresh batch and restarts the stream.
+  // Convert a backend-scored real session into the shape the UI expects.
   function normalizeReal(r) {
     const wouldAbandon = r.purchased === 0
     const EFF = { payment_retry_help: 0.55, cod_offer: 0.50, free_shipping_nudge: 0.40,
@@ -65,6 +97,7 @@ export default function App() {
       cartValue: r.cart_value, discount: r.is_control ? 0 : r.discount, channelCost: 0,
       engine: r.engine, isControl: r.is_control, decisionCost: r.engine === 'llm_escalated' ? 0.25 : 0.0002,
       wouldAbandon, recovered, quadrant,
+      deliveryDays: r.delivery_days || 0,
       marginRecovered: recovered ? Math.round(r.cart_value * 0.30) : 0,
       explanation: `${r.reason.replace(/_/g,' ')} → ${(r.action||'').replace(/_/g,' ')}`,
     }
@@ -88,26 +121,76 @@ export default function App() {
     }
     setStats(acc)
     setFeed(rolled.slice(-30).reverse())
-    setActive((cur) => (cur && cur._pinned ? cur : rolled[rolled.length - 1]))
+    // Auto-advance the inspected session ONLY while the Live Feed tab streams;
+    // anywhere else keep whatever the user pinned or picked (no panel flipping
+    // under a judge mid-sentence on Try It Live).
+    setActive((cur) => (cur && cur._pinned) || tabRef.current !== 'Live Feed' ? cur : rolled[rolled.length - 1])
   }
 
   // Prefer REAL dataset sessions scored by the backend; fall back to simulator.
   const [dataSource, setDataSource] = useState('simulated')
+  const [liveTicks, setLiveTicks] = useState(0)
+  const allRef = useRef([])          // every session accumulated (batched + streamed)
+  const seenRef = useRef(new Set())  // dedupe: a real session must never count twice
+
+  function pushToFeed(newSessions) {
+    // The live stream draws from the SAME real pool as the seed batch, so without
+    // dedup the same shopper would reappear and inflate the stats. Skip seen ids.
+    const fresh = newSessions.filter((s) => {
+      if (seenRef.current.has(s.id)) return false
+      seenRef.current.add(s.id)
+      return true
+    })
+    if (!fresh.length) return
+    allRef.current = [...allRef.current, ...fresh].slice(-500)
+    aggregate(allRef.current)
+  }
+
   async function runBatch(size = 500) {
+    setLiveTicks(0)
     const real = await getStreamSample(size)
     if (real && real.length) {
-      aggregate(real.map(normalizeReal))
+      allRef.current = real.map(normalizeReal)
+      // seed the dedupe set with the batch ids themselves (stream rows that
+      // repeat a batch shopper are skipped), set AFTER the batch is assigned so
+      // a tick landing mid-fetch can't burn ids into a stale window.
+      seenRef.current = new Set(real.map((r) => r.session_id))
+      aggregate(allRef.current)
       setDataSource('real dataset (backend)')
     } else {
       const rolled = []
       for (let i = 0; i < size; i++) rolled.push(nextSession())
+      allRef.current = rolled
+      seenRef.current = new Set(rolled.map((s) => s.id))
       aggregate(rolled)
       setDataSource('simulated (backend offline)')
     }
   }
 
-  // Run one stable batch on first load.
-  useEffect(() => { runBatch(500) /* eslint-disable-next-line */ }, [])
+  // LIVE STREAM: seed once with a real batch, then poll /stream every ~1.4s and
+  // keep appending freshly-scored dataset rows — numbers genuinely move with
+  // data. A recursive timeout (not setInterval) keeps slow polls from piling up.
+  useEffect(() => {
+    let alive = true
+    let handle = null
+    runBatch(500) /* eslint-disable-next-line */
+    const tick = async () => {
+      if (!alive) return
+      const s = await streamSession()
+      if (!alive) return
+      if (s) {
+        pushToFeed([normalizeReal(s)])
+        setDataSource('live · real dataset (backend)')
+      } else {
+        pushToFeed([nextSession()])  // backend offline — keep it alive with the simulator
+        setDataSource('simulated (backend offline)')
+      }
+      setLiveTicks((n) => n + 1)
+      if (alive) handle = setTimeout(tick, 3500)
+    }
+    handle = setTimeout(tick, 3500)
+    return () => { alive = false; clearTimeout(handle) }
+  }, [])
 
   const tRec = stats.tAtRisk ? stats.tRecovered / stats.tAtRisk : 0
   const cRec = stats.cAtRisk ? stats.cRecovered / stats.cAtRisk : 0
@@ -140,10 +223,10 @@ export default function App() {
     <ResponsiveContainer width="100%" height={h}>
       <BarChart data={reasonData} layout="vertical" margin={{ left: 8, right: 20 }}>
         <XAxis type="number" hide />
-        <YAxis type="category" dataKey="reason" width={100} tick={{ fill: '#C9D0EA', fontSize: 10 }} />
-        <Tooltip cursor={{ fill: '#232A4A' }} contentStyle={{ background: '#1A1F38', border: '1px solid #3A4268', borderRadius: 8, fontSize: 12, color: '#F4F6FF' }} />
-        <Bar dataKey="count" radius={[0, 6, 6, 0]} animationDuration={900} animationEasing="ease-out" isAnimationActive={true}>
-          {reasonData.map((d) => <Cell key={d.key} fill={REASON_COLORS[d.key] || '#818CF8'} />)}
+        <YAxis type="category" dataKey="reason" width={100} tick={{ fill: svgColors.tick, fontSize: 10 }} />
+        <Tooltip cursor={{ fill: svgColors.cursor }} contentStyle={{ background: 'rgb(var(--c-surface))', border: '1px solid rgb(var(--c-line))', borderRadius: 8, fontSize: 12, color: 'rgb(var(--c-ink))', boxShadow: '0 10px 30px rgba(6,11,24,0.3)' }} />
+        <Bar dataKey="count" radius={[0, 6, 6, 0]} animationDuration={1400} animationEasing="ease-in-out" isAnimationActive={true} maxBarSize={26}>
+          {reasonData.map((d) => <Cell key={d.key} fill={REASON_COLORS[d.key] || '#22D3EE'} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -174,14 +257,30 @@ export default function App() {
     <div className="min-h-full p-5 max-w-[1180px] mx-auto">
       {/* Header */}
       <header className="relative overflow-hidden flex justify-between items-center mb-5 bg-surface border border-line rounded-2xl px-5 py-3.5 shadow-card">
-        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-accent via-accent-2 to-accent-3" />
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl text-white shadow-float" style={{ background: 'linear-gradient(135deg,#818CF8,#A78BFA,#C084FC)' }}>🛒</div>
-          <div><h1 className="text-xl font-bold text-ink">Cart Rescue <span className="text-gold text-sm align-middle">★</span></h1><div className="text-muted text-xs">Intelligent cart-abandonment agent · 4 cooperating AI agents</div></div>
+        <div style={{ background: "linear-gradient(90deg, rgb(var(--c-teal)), rgb(var(--c-accent)), rgb(var(--c-accent3)))" }} className="absolute inset-x-0 top-0 h-[3px] bg-[length:200%_100%] animate-shimmer" />
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl text-white shadow-float shrink-0" style={{ background: 'var(--logo-gradient)' }}>🛒</div>
+          <div>
+            <h1 className="text-ink text-xl font-bold" style={{ color: 'rgb(var(--c-ink))' }}>Cart Rescue <span className="text-sm align-middle" style={{ color: 'rgb(var(--c-gold))' }}>★</span></h1>
+            <div className="text-xs" style={{ color: 'rgb(var(--c-muted))' }}>Intelligent cart-abandonment agent · 4 cooperating AI agents</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2 text-xs text-good bg-good/10 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-good animate-dot-blink" />{stats.total.toLocaleString('en-IN')} sessions · {dataSource}</span>
-          <button onClick={() => runBatch(500)} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-accent to-accent-2 text-white text-sm font-medium hover:from-accent-dark hover:to-accent-3 transition-all shadow-glow">↻ Run again</button>
+          <span className="flex items-center gap-2 text-xs text-good bg-good/10 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-good animate-dot-blink" />{stats.total.toLocaleString('en-IN')} sessions analysed</span>
+          {onHome && (
+            <button onClick={onHome} title="Back to intro"
+              className="w-9 h-9 rounded-lg bg-surface-2 border border-line text-ink hover:text-accent hover:bg-accent/10 hover:border-accent/50 transition-all duration-200 active:scale-90 flex items-center justify-center text-sm">
+              ⌂
+            </button>
+          )}
+          <button onClick={toggleTheme}
+            className="w-9 h-9 rounded-lg bg-surface-2 border border-line text-ink hover:text-accent hover:bg-accent/10 hover:border-accent/50 transition-all duration-200 active:scale-90 flex items-center justify-center text-base"
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button onClick={() => runBatch(500)}
+            className="px-3 py-1.5 rounded-lg text-white text-sm font-medium active:scale-95 transition-transform duration-200 shadow-glow"
+            style={{ background: 'linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-accent2)))' }}>↻ Simulate live traffic</button>
         </div>
       </header>
 
@@ -189,7 +288,8 @@ export default function App() {
       <nav className="flex gap-1.5 mb-5 bg-surface border border-line rounded-xl p-1.5 w-fit shadow-card">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${tab === t ? 'bg-gradient-to-r from-accent to-accent-2 text-white shadow-glow' : 'text-muted hover:text-ink hover:bg-surface-2'}`}>
+            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 active:scale-95 ${tab === t ? 'text-white shadow-glow' : 'text-ink-soft hover:text-accent hover:bg-accent/10'}`}
+            style={tab === t ? { background: 'linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-accent2)))' } : undefined}>
             {t}
           </button>
         ))}
@@ -197,11 +297,11 @@ export default function App() {
 
       {/* ---------- OVERVIEW ---------- */}
       {tab === 'Overview' && (
-        <div className="space-y-4">
+        <div key="Overview" className="space-y-4 animate-slide-up">
           <KPIs />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card><h3 className="text-sm font-bold mb-1">📊 Proof it works — A/B holdout</h3><p className="text-muted text-[11px] mb-3">30% control group proves our nudges cause the extra sales.</p><ABProof /></Card>
-            <Card><h3 className="text-sm font-bold mb-1">📈 Why shoppers leave</h3><p className="text-muted text-[11px] mb-2">Live breakdown across all sessions.</p><ReasonChart /></Card>
+            <Card><h3 className="text-ink text-sm font-bold mb-1">📊 Proof it works — A/B holdout</h3><p className="text-muted text-[11px] mb-3">30% control group proves our nudges cause the extra sales.</p><ABProof /></Card>
+            <Card><h3 className="text-ink text-sm font-bold mb-1">📈 Why shoppers leave</h3><p className="text-muted text-[11px] mb-2">Live breakdown across all sessions.</p><ReasonChart /></Card>
           </div>
           <Card><JudgingScorecard metrics={{ netMargin, uplift, auc: modelInfo.risk_auc || 0.82, avgLatency: 0.2, avgCost, pctClassical: stats.total ? Math.round((stats.total-stats.llm)/stats.total*100) : 0, discPerCart, total: stats.total }} /></Card>
         </div>
@@ -209,10 +309,10 @@ export default function App() {
 
       {/* ---------- TRY IT LIVE ---------- */}
       {tab === 'Try It Live' && (
-        <div className="space-y-4">
+        <div key="Try It Live" className="space-y-4 animate-slide-up">
           <Card><TryItLive onDecision={handleManualDecision} /></Card>
           <Card>
-            <h3 className="text-sm font-bold flex items-center gap-2">🧠 Live AI Reasoning <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">4 agents</span></h3>
+            <h3 className="text-ink text-sm font-bold flex items-center gap-2">🧠 Live AI Reasoning <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">4 agents</span></h3>
             <p className="text-muted text-[11px] mb-3">The 4 agents' step-by-step thinking for the analysed shopper.</p>
             <AgentTrace session={active} />
           </Card>
@@ -221,24 +321,25 @@ export default function App() {
 
       {/* ---------- LIVE FEED ---------- */}
       {tab === 'Live Feed' && (
-        <div className="space-y-4">
+        <div key="Live Feed" className="space-y-4 animate-slide-up">
           <KPIs />
           <Card>
-            <h3 className="text-sm font-bold mb-1">🔴 Live session feed <span className="text-[11px] text-muted font-normal">· click one to inspect its reasoning</span></h3>
+            <h3 className="text-ink text-sm font-bold mb-1">🔴 Live session feed <span className="text-[11px] text-muted font-normal">· click one to inspect its reasoning</span></h3>
             <p className="text-[11px] text-muted mb-3">
               <span className="text-purple font-semibold">CONTROL</span> rows (dashed) are the 30% A/B holdout — they get <b>no action on purpose</b> so we can prove true uplift. Everyone else gets the AI's matched action.
             </p>
             <div className="flex flex-col gap-1.5 max-h-[460px] overflow-y-auto pr-1">
-              {feed.map((s) => {
+              {feed.map((s, i) => {
                 const isCtrl = s.isControl
                 const riskColor = s.risk >= 0.65 ? '#FB7185' : s.risk >= 0.35 ? '#FBBF24' : '#34D399'
                 return (
                 <button key={s.id} onClick={() => { setActive({ ...s, _pinned: true }); setManualDecision(null); setTab('Try It Live') }}
-                  className={`flex items-center gap-3 text-left px-3 py-2 rounded-lg text-[13px] transition-colors ${isCtrl ? 'bg-surface-2/60 border border-dashed border-line' : 'bg-surface-2 hover:bg-surface-3'}`}
+                  className={`flex items-center gap-3 text-left px-3 py-2 rounded-lg text-[13px] transition-colors animate-reveal ${isCtrl ? 'bg-surface-2/60 border border-dashed border-line' : 'bg-surface-2 hover:bg-surface-3'}`}
+                  style={{ animationDelay: `${Math.min(i, 8) * 0.06}s` }}
                   title={isCtrl ? 'A/B CONTROL: this shopper is in the holdout group and intentionally gets NO action, so we can measure true uplift.' : `${REASON_LABEL[s.reason]} → ${(s.action||'').replace(/_/g,' ')}`}>
                   <span className="font-mono text-muted w-20 shrink-0">{s.id}</span>
                   <span className="w-10 text-right tabular-nums shrink-0 font-semibold" style={{ color: riskColor }}>{Math.round(s.risk * 100)}%</span>
-                  <span className="px-2 py-0.5 rounded text-[11px] shrink-0 font-medium" style={{ background: (REASON_COLORS[s.reason] || '#818CF8') + '1A', color: REASON_COLORS[s.reason] || '#818CF8' }}>{REASON_LABEL[s.reason]}</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] shrink-0 font-medium" style={{ background: (REASON_COLORS[s.reason] || '#22D3EE') + '1A', color: REASON_COLORS[s.reason] || '#22D3EE' }}>{REASON_LABEL[s.reason]}</span>
                   <span className="flex-1 truncate text-ink-soft">{(s.action || '').replace(/_/g, ' ')}</span>
                   {isCtrl
                     ? <span className="text-[10px] font-semibold text-purple bg-purple/10 border border-purple/30 px-2 py-0.5 rounded shrink-0" title="Holdout / control group — no action on purpose">CONTROL · no action</span>
@@ -255,11 +356,11 @@ export default function App() {
 
       {/* ---------- A/B PROOF ---------- */}
       {tab === 'A/B Proof' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card><h3 className="text-sm font-bold mb-1">📊 A/B holdout — true uplift</h3><p className="text-muted text-[11px] mb-3">We leave 30% untouched (control) to prove causation, not correlation.</p><ABProof /></Card>
+        <div key="A/B Proof" className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
+          <Card><h3 className="text-ink text-sm font-bold mb-1">📊 A/B holdout — true uplift</h3><p className="text-muted text-[11px] mb-3">We leave 30% untouched (control) to prove causation, not correlation.</p><ABProof /></Card>
           <Card><PersuadablesQuadrant counts={stats.quadrants} /></Card>
           <Card className="lg:col-span-2">
-            <h3 className="text-sm font-bold mb-2">💰 Money math</h3>
+            <h3 className="text-ink text-sm font-bold mb-2">💰 Money math</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-surface-2 rounded-xl p-3"><div className="text-lg font-bold text-good">{inr(stats.marginRecovered)}</div><div className="text-[11px] text-muted">margin recovered</div></div>
               <div className="bg-surface-2 rounded-xl p-3"><div className="text-lg font-bold text-warn">{inr(stats.discount)}</div><div className="text-[11px] text-muted">discount spent</div></div>
@@ -272,7 +373,7 @@ export default function App() {
 
       {/* ---------- COUPON LOGIC ---------- */}
       {tab === 'Coupon Logic' && (
-        <div className="space-y-4">
+        <div key="Coupon Logic" className="space-y-4 animate-slide-up">
           <Card><CouponLogic /></Card>
           <Card><PersuadablesQuadrant counts={stats.quadrants} /></Card>
         </div>

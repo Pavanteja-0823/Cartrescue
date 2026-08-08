@@ -5,22 +5,114 @@
 /* All animations live in tailwind.config.js (theme.extend.keyframes) — NOT here —
    to avoid @keyframes collisions that freeze elements at the 0% frame. */
 
-html, body, #root { height: 100%; margin: 0; }
-body {
-  /* Premium medium-dark canvas: soft indigo + fuchsia radial glows over the slate base */
-  background:
-    radial-gradient(1100px 520px at 85% -10%, rgba(129,140,248,0.13), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(192,132,252,0.09), transparent 55%),
-    #12162A;
-  color: #F4F6FF;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+/* ============================ THEME TOKENS ============================ */
+/* Colors are stored as space-separated RGB triples so Tailwind utilities can
+   apply them with any alpha (rgb(var(--c-bg) / 0.5)). The dashboard toggles
+   `data-theme` on <html>; :root holds the DARK "Aurora Night" default. */
+
+:root {
+  color-scheme: dark;
+  /* --- Aurora Night (dark) --- */
+  --c-bg: 10 17 32;
+  --c-surface: 16 27 49;
+  --c-surface2: 22 35 63;
+  --c-surface3: 32 49 90;
+  --c-line: 44 63 107;
+  --c-ink: 242 247 255;
+  --c-ink-soft: 198 212 240;
+  --c-muted: 138 156 196;
+  --c-accent: 34 211 238;        /* cyan */
+  --c-accent-dark: 15 163 196;
+  --c-accent2: 56 189 248;       /* sky */
+  --c-accent3: 96 165 250;       /* blue */
+  --c-good: 52 211 153;          /* emerald */
+  --c-warn: 251 191 36;          /* amber */
+  --c-bad: 251 113 133;          /* rose */
+  --c-purple: 167 139 250;       /* violet */
+  --c-orange: 251 146 60;
+  --c-sky: 96 165 250;
+  --c-pink: 244 114 182;
+  --c-gold: 245 196 105;
+  --c-teal: 45 212 191;
+
+  /* theme-driven extras (gradients, glows, chrome) */
+  --logo-gradient: linear-gradient(135deg, #2DD4BF, #22D3EE, #60A5FA);
+  --chat-header-gradient: linear-gradient(135deg, #0FA3C4, #22D3EE, #60A5FA);
+  --body-bg:
+    radial-gradient(1100px 520px at 85% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(96, 165, 250, 0.10), transparent 55%),
+    radial-gradient(700px 420px at 50% 120%, rgba(45, 212, 191, 0.06), transparent 60%),
+    #0A1120;
+  --scroll-thumb: #20315A;
+  --scroll-thumb-hover: #2C3F6B;
+  --slider-fill: rgb(34 211 238);
+  --slider-track: rgb(32 49 90);
+  --slider-thumb: #F2F7FF;
 }
+
+[data-theme='light'] {
+  color-scheme: light;
+  /* --- Aurora Light --- */
+  --c-bg: 243 247 254;
+  --c-surface: 255 255 255;
+  --c-surface2: 237 242 252;
+  --c-surface3: 222 231 247;
+  --c-line: 211 222 239;
+  --c-ink: 16 26 46;
+  --c-ink-soft: 62 76 108;
+  --c-muted: 102 120 155;
+  --c-accent: 8 145 178;         /* cyan-600 (readable on white) */
+  --c-accent-dark: 14 116 144;
+  --c-accent2: 2 132 199;        /* sky-600 */
+  --c-accent3: 37 99 235;        /* blue-600 */
+  --c-good: 5 150 105;           /* emerald-600 */
+  --c-warn: 217 119 6;           /* amber-600 */
+  --c-bad: 225 29 72;            /* rose-600 */
+  --c-purple: 124 58 237;        /* violet-600 */
+  --c-orange: 234 88 12;
+  --c-sky: 2 132 199;
+  --c-pink: 219 39 119;
+  --c-gold: 180 83 9;            /* amber-700 */
+  --c-teal: 13 148 136;          /* teal-600 */
+
+  --logo-gradient: linear-gradient(135deg, #0D9488, #0891B2, #2563EB);
+  --chat-header-gradient: linear-gradient(135deg, #0D9488, #0891B2, #2563EB);
+  --body-bg:
+    radial-gradient(1100px 520px at 85% -10%, rgba(8, 145, 178, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(37, 99, 235, 0.08), transparent 55%),
+    #F3F7FE;
+  --scroll-thumb: #C9D6EC;
+  --scroll-thumb-hover: #B3C4E2;
+  --slider-fill: rgb(8 145 178);
+  --slider-track: rgb(222 231 247);
+  --slider-thumb: #FFFFFF;
+}
+
+/* ============================ BASE ============================ */
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--body-bg);
+  background-attachment: fixed;
+  color: rgb(var(--c-ink));
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth cross-fade when toggling themes: the class is applied to <html> for a
+   few hundred ms by the toggle handler, then removed. */
+html.theme-switching,
+html.theme-switching * {
+  transition: background-color 0.3s ease, border-color 0.3s ease,
+              color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2C3460; border-radius: 9px; }
-::-webkit-scrollbar-thumb:hover { background: #3A4268; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 9px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
-/* --- Consistent range slider (cr-slider) — dark theme -------------------- */
+/* --- Consistent range slider (cr-slider) — theme-aware ------------------- */
 .cr-slider {
   -webkit-appearance: none; appearance: none;
   height: 6px; border-radius: 9999px; outline: none; cursor: pointer;
@@ -28,14 +120,14 @@ body {
 .cr-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 18px; height: 18px; border-radius: 50%;
-  background: #F4F6FF; border: 3px solid #818CF8;
-  box-shadow: 0 1px 6px rgba(129,140,248,0.6); cursor: pointer;
+  background: var(--slider-thumb); border: 3px solid var(--slider-fill);
+  box-shadow: 0 1px 6px rgba(14, 116, 144, 0.35); cursor: pointer;
   transition: transform 0.1s ease;
 }
 .cr-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
 .cr-slider::-moz-range-thumb {
   width: 18px; height: 18px; border-radius: 50%;
-  background: #F4F6FF; border: 3px solid #818CF8;
-  box-shadow: 0 1px 6px rgba(129,140,248,0.6); cursor: pointer;
+  background: var(--slider-thumb); border: 3px solid var(--slider-fill);
+  box-shadow: 0 1px 6px rgba(14, 116, 144, 0.35); cursor: pointer;
 }
 .cr-slider::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }

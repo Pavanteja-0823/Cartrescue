@@ -33,7 +33,7 @@ export default function FloatingChat({ activeDecision, llmActive }) {
       {/* Floating button */}
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[60] w-16 h-16 rounded-full bg-gradient-to-br from-accent to-purple text-white text-2xl shadow-float animate-float-pulse flex items-center justify-center"
+          style={{ background: "linear-gradient(135deg, rgb(var(--c-accent)), rgb(var(--c-purple)))" }} className="fixed bottom-6 right-6 z-[60] w-16 h-16 rounded-full text-white text-2xl shadow-float animate-float-pulse flex items-center justify-center"
           title="Ask the Cart Rescue AI">
           🤖
         </button>
@@ -48,10 +48,10 @@ export default function FloatingChat({ activeDecision, llmActive }) {
       {open && (
         <div
           className="fixed bottom-6 right-6 z-[60] w-[370px] max-w-[92vw] rounded-2xl shadow-float border border-line flex flex-col overflow-hidden animate-bounce-in"
-          style={{ height: '520px', backgroundColor: '#1A1F38' }}>
-          {/* header — royal indigo gradient */}
+          style={{ height: '520px', backgroundColor: 'rgb(var(--c-surface))' }}>
+          {/* header — aurora gradient (darker start so white text stays readable) */}
           <div className="flex items-center justify-between px-4 py-3 text-white"
-               style={{ background: 'linear-gradient(135deg,#818CF8,#A78BFA,#C084FC)' }}>
+               style={{ background: 'var(--chat-header-gradient)', textShadow: '0 1px 3px rgba(6,11,24,0.45)' }}>
             <div className="flex items-center gap-2">
               <span className="text-lg">🤖</span>
               <div>
@@ -66,20 +66,23 @@ export default function FloatingChat({ activeDecision, llmActive }) {
           </div>
 
           {/* messages — solid light background */}
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5" style={{ backgroundColor: '#12162A' }}>
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5" style={{ backgroundColor: 'rgb(var(--c-bg))' }}>
             {msgs.map((m, i) => (
-              <div key={i} className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-snug animate-fade-in ${
-                m.role === 'user' ? 'self-end text-white rounded-br-sm' : 'self-start text-ink border border-line rounded-bl-sm'}`}
-                style={{ backgroundColor: m.role === 'user' ? '#6D5CE8' : '#232A4A' }}>
+              <div key={i}
+                className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-snug animate-fade-in ${
+                  m.role === 'user' ? 'self-end rounded-br-sm' : 'self-start rounded-bl-sm border'}`}
+                style={m.role === 'user'
+                  ? { backgroundColor: 'rgb(var(--c-accent))', color: '#FFFFFF' }
+                  : { backgroundColor: 'rgb(var(--c-surface3))', color: 'rgb(var(--c-ink))', borderColor: 'rgb(var(--c-line))' }}>
                 {m.text}
               </div>
             ))}
-            {busy && <div className="self-start text-muted px-3 py-2 rounded-2xl text-xs animate-fade-in border border-line" style={{ backgroundColor: '#232A4A' }}>thinking…</div>}
+            {busy && <div className="self-start text-muted px-3 py-2 rounded-2xl text-xs animate-fade-in border border-line" style={{ backgroundColor: 'rgb(var(--c-surface2))' }}>thinking…</div>}
             <div ref={endRef} />
           </div>
 
           {/* suggestions */}
-          <div className="px-3 pt-2 flex flex-wrap gap-1.5" style={{ backgroundColor: '#232A4A' }}>
+          <div className="px-3 pt-2 flex flex-wrap gap-1.5" style={{ backgroundColor: 'rgb(var(--c-surface2))' }}>
             {SUGGESTIONS.map((s) => (
               <button key={s} onClick={() => send(s)}
                 className="text-[11px] text-accent bg-accent/10 border border-accent/30 px-2 py-1 rounded-full hover:bg-accent/20">
@@ -89,14 +92,14 @@ export default function FloatingChat({ activeDecision, llmActive }) {
           </div>
 
           {/* input */}
-          <div className="flex gap-2 p-3 border-t border-line" style={{ backgroundColor: '#232A4A' }}>
+          <div className="flex gap-2 p-3 border-t border-line" style={{ backgroundColor: 'rgb(var(--c-surface2))' }}>
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Ask the AI…"
-              className="flex-1 border border-line rounded-xl px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
-              style={{ backgroundColor: '#12162A' }} />
+              className="flex-1 border border-line rounded-xl px-3 py-2 text-[13px] outline-none focus:border-accent"
+              style={{ backgroundColor: 'rgb(var(--c-bg))', color: 'rgb(var(--c-ink))' }} />
             <button onClick={() => send()} disabled={busy}
-              className="bg-gradient-to-r from-accent to-accent-2 hover:from-accent-dark hover:to-accent-3 text-white rounded-xl px-4 text-sm font-semibold disabled:opacity-50 transition-all">➤</button>
+              style={{ background: "linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-accent2)))" }} className="active:scale-95 text-white rounded-xl px-4 text-sm font-semibold disabled:opacity-50 transition-all duration-200">➤</button>
           </div>
         </div>
       )}

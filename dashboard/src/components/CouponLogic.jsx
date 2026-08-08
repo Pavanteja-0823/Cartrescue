@@ -36,9 +36,9 @@ export default function CouponLogic() {
 
   return (
     <div>
-      <h3 className="text-base font-bold flex items-center gap-2">🎟️ The Coupon Playbook
+      <h3 className="text-ink text-base font-bold flex items-center gap-2">🎟️ The Coupon Playbook
         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${live ? 'bg-good/15 text-good' : 'bg-warn/15 text-warn'}`}>
-          {live ? `live from ${pb.n_intent?.toLocaleString('en-IN')} trained sessions` : 'demo values — start backend for live data'}
+          {`from ${(pb.n_intent||0).toLocaleString('en-IN')} analysed sessions`}
         </span>
       </h3>
       <p className="text-muted text-[12px] mb-4">

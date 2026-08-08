@@ -25,7 +25,7 @@ export default function PersuadablesQuadrant({ counts = {} }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1
   return (
     <div>
-      <h3 className="text-sm font-bold flex items-center gap-2">🎯 Who deserves a coupon?
+      <h3 className="text-ink text-sm font-bold flex items-center gap-2">🎯 Who deserves a coupon?
         <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">uplift modeling</span>
       </h3>
       <p className="text-muted text-[11px] mb-3">

@@ -40,6 +40,9 @@ A **plug-and-play decision service** (`POST /score`) powered by **four cooperati
 | **3** | Groq LLM explainability (with safe fallback) | ✅ Done |
 | **4** | Docs, diagrams, pitch, demo script, Q&A | ✅ Done |
 | **3** | **SendGrid email + Twilio SMS/WhatsApp — real sending** | ✅ Done |
+| **4** | Animated **landing page** intro | ✅ Done |
+| **4** | **Dark/light theme toggle** (Aurora Night / Aurora Light) | ✅ Done |
+| **4** | **Live-stream dashboard** (real sessions scored & streamed live) | ✅ Done |
 
 ---
 
@@ -119,6 +122,7 @@ sequenceDiagram
 - **Real recovery nudges**: actually sends email (SendGrid) and SMS/WhatsApp (Twilio), with consent enforced; safe dry-run without keys.
 - **Explainable AI**: every action ships with a plain-English "why", plus a Groq-powered Q&A chat.
 - **Hybrid ML**: uses XGBoost/scikit-learn if installed, else a pure-numpy fallback — **always runs**.
+- **Cinematic demo front-end**: animated landing page → live dashboard with a **dark/light theme toggle** (Aurora Night / Aurora Light), **rolling KPI counters**, an animated "why shoppers leave" chart, a live reasoning trace, and a real-time session stream.
 
 ## 🧰 Tech Stack
 
@@ -152,7 +156,7 @@ cart_rescue/
 │       ├── self_check.py         # Agent 4
 │       └── uplift_model.py       # Persuadables (T-learner)
 ├── dashboard/                 # React + Vite + Tailwind live dashboard
-│   └── src/ (App.jsx, components/, api.js, demoData.js)
+│   └── src/ (Root.jsx → LandingPage.jsx intro → App.jsx, components/, api.js, demoData.js)
 ├── scripts/ (train.py, run_demo.py)
 ├── docs/  (DEMO_SCRIPT.md, PITCH.md, QA_PREP.md)
 ├── requirements.txt · .env · LICENSE · CONTRIBUTING.md
@@ -194,7 +198,10 @@ npm run dev
 #  → http://localhost:5173
 ```
 
-> The dashboard runs **standalone** (built-in session simulator), so it works even if the backend is down — reliable for a live demo. With the backend up, the "Ask the AI" panel calls the real Groq-backed endpoint.
+> The dashboard opens on an animated **landing page** — click **"Get Started →"** to enter the live dashboard (a small **"← Home"** link returns to the intro).
+>
+> - **Dark/light theme**: toggle with the ☀️/🌙 button in the header (persisted to localStorage; deep-link straight to light mode with `?theme=light`).
+> - With the backend up, the dashboard **streams real dataset sessions live** — every ~1.4s a fresh session is scored by the trained model and appended to the feed (rolling KPIs, animated "why shoppers leave" chart) — and the "Ask the AI" panel calls the real Groq-backed endpoint. If the backend is down it falls back to its built-in session simulator.
 
 ### Environment variables (`.env`)
 | Key | Purpose | Required? |
@@ -259,7 +266,7 @@ npm run dev
 }
 ```
 
-Other endpoints: `POST /explain` (rich narrative), `POST /ask` (judge Q&A), `GET /health`, `GET /llm_status`.
+Other endpoints: `POST /explain` (rich narrative), `POST /ask` (judge Q&A), `GET /health`, `GET /llm_status`, `GET /stream_sample` (scored batch) and `GET /stream` (one freshly-scored dataset session — the dashboard polls this for its live feed).
 
 ---
 

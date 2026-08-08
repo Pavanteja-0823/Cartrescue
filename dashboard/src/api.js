@@ -224,3 +224,14 @@ export async function getStreamSample(limit = 400) {
     return d.sessions
   } catch { return null }  // caller falls back to the simulator
 }
+
+// Score ONE fresh real dataset session LIVE — polled to keep numbers moving.
+export async function streamSession() {
+  try {
+    const r = await fetch(`${BASE}/stream`, { signal: AbortSignal.timeout(4000) })
+    if (!r.ok) throw new Error('bad')
+    const d = await r.json()
+    if (!d || !d.ok || !d.session_id) throw new Error('empty')
+    return d
+  } catch { return null }  // caller falls back to the simulator row
+}

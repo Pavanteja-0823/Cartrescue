@@ -1,12 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#12162A" />
+    <meta name="theme-color" content="#0A1120" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>" />
     <title>Cart Rescue — Live Decision Dashboard</title>
-    <style>html, body { background: #12162A; }</style>
+    <!-- Apply the saved theme BEFORE first paint so there is never a flash.
+         A ?theme=light|dark query param overrides the saved choice (handy for
+         demo deep-links). -->
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search).get('theme')
+        var t = null
+        try { t = q === 'light' || q === 'dark' ? q : localStorage.getItem('cr-theme') } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = 'dark'
+        document.documentElement.dataset.theme = t
+      })()
+    </script>
+    <style>html, body { background: transparent; }</style>
   </head>
   <body>
     <div id="root"></div>

@@ -66,7 +66,7 @@ export default function TryItLive({ onDecision }) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* LEFT: inputs */}
       <div>
-        <h3 className="text-base font-bold flex items-center gap-2">🎮 Try It Live
+        <h3 className="text-ink text-base font-bold flex items-center gap-2">🎮 Try It Live
           <span className="text-[9px] text-muted font-medium bg-surface-2 px-1.5 py-0.5 rounded">enter a shopper → AI decides</span>
         </h3>
         <p className="text-muted text-[12px] mb-4">Drag the sliders to describe ONE shopper, then let the AI analyse that exact person.</p>
@@ -108,14 +108,14 @@ export default function TryItLive({ onDecision }) {
         </div>
 
         <button onClick={analyze} disabled={busy}
-          className="w-full mt-5 bg-gradient-to-r from-accent to-accent-2 hover:from-accent-dark hover:to-accent-3 text-white font-semibold rounded-xl py-3 text-sm disabled:opacity-50 shadow-glow transition-all">
+          style={{ background: "linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-accent2)))" }} className="w-full mt-5 text-white font-semibold rounded-xl py-3 text-sm disabled:opacity-50 shadow-glow transition-all">
           {busy ? '🤖 AI is analysing…' : '🚀 Analyse this shopper'}
         </button>
       </div>
 
       {/* RIGHT: result */}
       <div>
-        <h3 className="text-base font-bold mb-1">🤖 AI Decision</h3>
+        <h3 className="text-ink text-base font-bold mb-1">🤖 AI Decision</h3>
         <p className="text-muted text-[12px] mb-4">The AI's verdict for this exact shopper.</p>
         {!result ? (
           <div className="h-[300px] flex items-center justify-center text-muted text-sm bg-surface-2 rounded-2xl border border-line">

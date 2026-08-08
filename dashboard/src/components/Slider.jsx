@@ -25,9 +25,9 @@ export default function Slider({ label, name, value, min = 0, max = 100, step = 
         onChange={(e) => onChange(name, Math.max(min, Number(e.target.value)))}
         className="cr-slider w-full"
         // The fill is drawn with a gradient that stops exactly at the value %,
-        // so every slider shows a consistent indigo fill + grey remainder.
+        // so every slider shows a consistent theme-aware fill + track remainder.
         style={{
-          background: `linear-gradient(to right, #818CF8 0%, #818CF8 ${pct}%, #2C3460 ${pct}%, #2C3460 100%)`,
+          background: `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`,
         }}
       />
     </div>
